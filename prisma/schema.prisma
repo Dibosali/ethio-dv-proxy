@@ -1,0 +1,177 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN
+  PROXY_AGENT
+}
+
+enum MaritalStatus {
+  UNMARRIED
+  MARRIED_NON_LPR
+  MARRIED_LPR
+  DIVORCED
+  WIDOWED
+  LEGALLY_SEPARATED
+}
+
+enum DerivativeType {
+  SPOUSE
+  CHILD
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum PaymentStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+model User {
+  id           String        @id @default(cuid())
+  username     String        @unique
+  passwordHash String
+  role         Role          @default(PROXY_AGENT)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  profile      Profile?
+  applications Application[]
+  payments     Payment[]
+
+  @@map("users")
+}
+
+model Profile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stationaryName String
+  phoneNumber    String
+  isActive       Boolean  @default(true)
+  city           String?
+  subCityDistrict String?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("profiles")
+}
+
+model Application {
+  id                 String         @id @default(cuid())
+  agentId            String
+  agent              User           @relation(fields: [agentId], references: [id])
+  firstName          String?
+  lastName           String
+  middleName         String?
+  gender             Gender
+  birthDate          DateTime
+  birthCity          String
+  birthCountry       String
+  eligibilityCountry String
+
+  // Address fields
+  addressLine1       String
+  addressLine2       String?
+  city               String
+  state              String
+  zip                String?
+  mailingCountry     String
+  currentCountry     String
+
+  // Contact fields
+  phone              String?
+  email              String
+
+  educationLevel     String
+  maritalStatus      MaritalStatus
+  numberOfChildren   Int            @default(0)
+  photoUrl           String
+
+  isPaid             Boolean        @default(false)
+  isFilled           Boolean        @default(false)
+  paidAt             DateTime?
+  paymentReference   String?
+  paymentMethod      String?
+  paymentAmount      Float?
+  receiptUrl         String?
+  receiptFileName    String?
+
+  dvPdfUrl           String?
+  dvPdfFileName      String?
+  dvPdfUploadedAt    DateTime?
+
+  derivatives        Derivative[]
+  payment            Payment?
+
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@map("applications")
+}
+
+model PaymentConfig {
+  id               String   @id @default("default")
+  feePerForm       Float    @default(200.0)
+  cbeAccountNumber String   @default("1000123456789")
+  cbeAccountName   String   @default("DV PROXY MANAGEMENT SERVICES")
+  telebirrPhone    String   @default("+251 91 123 4567")
+  telebirrName     String   @default("DV PROXY SERVICES")
+  paymentNotice    String   @default("Please include your shop username in the transfer remark.")
+  updatedAt        DateTime @updatedAt
+
+  @@map("payment_configs")
+}
+
+model Derivative {
+  id            String         @id @default(cuid())
+  applicationId String
+  application   Application    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  type          DerivativeType
+  firstName     String?
+  lastName      String
+  middleName    String?
+  gender        Gender
+  birthDate     DateTime
+  birthCity     String
+  birthCountry  String
+  photoUrl      String
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@map("derivatives")
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  agentId         String
+  agent           User          @relation(fields: [agentId], references: [id])
+  applicationId   String?       @unique
+  application     Application?  @relation(fields: [applicationId], references: [id])
+  transactionId   String        @unique
+  amount          Float
+  bankName        String
+  status          PaymentStatus @default(PENDING)
+  receiptPhotoUrl String
+  senderName      String
+  submittedAt     DateTime      @default(now())
+  verifiedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("payments")
+}
+
